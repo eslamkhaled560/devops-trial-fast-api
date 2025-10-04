@@ -12,7 +12,7 @@ provider "aws" {
 # TODO: Create ECR repo for FastAPI app image
 # IMPORTANT: Must be named with "devops-trial-" prefix
 resource "aws_ecr_repository" "app" {
-  name = "devops-trial-fastapi-app"
+  name = var.ecr_repo_name
 }
 
 ############################################

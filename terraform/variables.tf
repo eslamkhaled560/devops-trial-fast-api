@@ -1,6 +1,11 @@
 variable "aws_region" { default = "us-east-1" }
+
+### ECR ###
+variable "ecr_repo_name" {
+  type = string
+}
 variable "project" {}
-variable "ecr_repo_name" { default = "fastapi-app" }
+# variable "ecr_repo_name" { default = "fastapi-app" }
 variable "ecr_account" {}
 variable "image_tag" { default = "latest" }
 variable "vpc_id" {}
