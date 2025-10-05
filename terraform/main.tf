@@ -193,7 +193,7 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([{
     name      = "fastapi"
-    image     = "${aws_ecr_repository.app.repository_url}:latest" # TODO: replace with actual ECR image
+    image     = var.image_uri # TODO: replace with actual ECR image
     essential = true
     portMappings = [{
       containerPort = 8000

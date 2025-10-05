@@ -19,6 +19,13 @@
 #   default = string
 # }
 
+# This variable will receive the ECR image URI from GitHub Actions
+variable "image_uri" {
+  description = "Full URI of the ECR image to deploy"
+  type        = string
+}
+
+
 # variable "project" {}
 # # variable "ecr_repo_name" { default = "fastapi-app" }
 # variable "ecr_account" {}
