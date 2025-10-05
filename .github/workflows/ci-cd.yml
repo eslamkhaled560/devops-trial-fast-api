@@ -44,6 +44,8 @@ jobs:
       # Step 1: Create ECR repository only
       - name: Terraform Apply (create only ECR)
         working-directory: ${{ env.TF_DIR }}
+        env:
+          TF_VAR_image_uri: "dummy-placeholder"
         run: terraform apply -target=aws_ecr_repository.app -auto-approve
 
       # Get ECR repository URI from Terraform output
