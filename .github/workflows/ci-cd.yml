@@ -36,6 +36,18 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      # Bootstrap Terraform backend (only if not exists)
+      - name: Bootstrap Terraform backend (only if not exists)
+        run: |
+          if ! aws s3api head-bucket --bucket devops-trial-terraform-state 2>/dev/null; then
+            echo "Backend bucket not found — creating backend..."
+            cd terraform/tf_remote_backend
+            terraform init
+            terraform apply
+          else
+            echo "Backend bucket already exists — skipping bootstrap."
+          fi
+
       # Terraform Init
       - name: Terraform Init
         working-directory: ${{ env.TF_DIR }}
@@ -44,8 +56,6 @@ jobs:
       # Step 1: Create ECR repository only
       - name: Terraform Apply (create only ECR)
         working-directory: ${{ env.TF_DIR }}
-        env:
-          TF_VAR_image_uri: "dummy-placeholder"
         run: terraform apply -target=aws_ecr_repository.app -auto-approve
 
       # Get ECR repository URI from Terraform output

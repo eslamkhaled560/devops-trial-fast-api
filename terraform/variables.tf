@@ -23,6 +23,7 @@
 variable "image_uri" {
   description = "Full URI of the ECR image to deploy"
   type        = string
+  default     = "897762590603.dkr.ecr.us-east-1.amazonaws.com/devops-trial-fastapi-app:latest"
 }
 
 
