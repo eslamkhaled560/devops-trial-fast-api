@@ -1,7 +1,4 @@
 # Backend Infrastructure
-provider "aws" {
-  region = "us-east-1"
-}
 
 # S3 bucket for Terraform state 
 resource "aws_s3_bucket" "tf_state" {
@@ -28,4 +25,15 @@ resource "aws_dynamodb_table" "tf_lock" {
   }
 
   hash_key = "LockID"
+}
+
+
+terraform {
+  backend "s3" {
+    bucket         = "devops-trial-terraform-state"
+    key            = "ecs/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "devops-trial-terraform-locks"
+    encrypt        = true
+  }
 }

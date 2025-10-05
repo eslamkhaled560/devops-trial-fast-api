@@ -36,16 +36,21 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      # Bootstrap Terraform backend (only if not exists)
-      - name: Bootstrap Terraform backend (only if not exists)
+
+      # Ensure Terraform backend (S3 + DynamoDB) exists
+      - name: Bootstrap Terraform backend (create S3 + DynamoDB if missing)
+        working-directory: ${{ env.TF_DIR }}
         run: |
+          echo "Checking if Terraform backend exists..."
           if ! aws s3api head-bucket --bucket devops-trial-terraform-state 2>/dev/null; then
-            echo "Backend bucket not found — creating backend..."
-            cd terraform/tf_remote_backend
+            echo "Backend not found. Creating S3 and DynamoDB for Terraform state..."
             terraform init
-            terraform apply
+            terraform apply -target=aws_s3_bucket.tf_state \
+                            -target=aws_s3_bucket_versioning.tf_state_versioning \
+                            -target=aws_dynamodb_table.tf_lock \
+                            -auto-approve
           else
-            echo "Backend bucket already exists — skipping bootstrap."
+            echo "Terraform backend already exists — skipping bootstrap."
           fi
 
       # Terraform Init
