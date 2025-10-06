@@ -21,7 +21,7 @@ variable "ecs_cluster_settings" {
   }))
 }
 
-# ### ECS Task ###
+# ### ECS Task Definition ###
 ### IAM Role ###
 variable "task_iam_rule_name" {
   type = string
@@ -76,6 +76,21 @@ variable "task_egress_rules" {
 variable "task_policy_attachment_arn" {
   type = string
 }
+
+### Task ###
+variable "task_cloudwatch_log_group_name" {
+  type = string
+}
+
+variable "task_cloudwatch_log_group_retention" {
+  type = number
+}
+
+variable "task_family" {
+  type = string
+}
+
+
 
 ### Application Load Balancer ###
 ### Security Group ###

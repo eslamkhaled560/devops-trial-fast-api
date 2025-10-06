@@ -194,12 +194,12 @@ resource "aws_lb_listener" "app_listener" {
 ############################################
 # TODO: Reference ECR image (candidate must set image URI)
 resource "aws_cloudwatch_log_group" "ecs_app" {
-  name              = "/ecs/devops-trial-fastapi"
-  retention_in_days = 7
+  name              = var.task_cloudwatch_log_group_name
+  retention_in_days = var.task_cloudwatch_log_group_retention
 }
 
 resource "aws_ecs_task_definition" "app" {
-  family                   = "devops-trial-fastapi-task"
+  family                   = var.task_family
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
   memory                   = "512"

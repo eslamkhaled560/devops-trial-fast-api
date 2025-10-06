@@ -42,7 +42,7 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           echo "Checking if Terraform backend exists..."
-          if ! aws s3api head-bucket --bucket devops-trial-terraform-state 2>/dev/null; then
+          if ! aws s3api head-bucket --bucket devops-trial-tf-backend-state 2>/dev/null; then
             echo "Backend not found. Creating S3 and DynamoDB for Terraform state..."
             terraform init
             terraform apply -target=aws_s3_bucket.tf_state \
@@ -58,7 +58,7 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: terraform init -input=false
 
-      # Step 1: Create ECR repository only
+      # Create ECR repository only
       - name: Terraform Apply (create only ECR)
         working-directory: ${{ env.TF_DIR }}
         run: terraform apply -target=aws_ecr_repository.app -auto-approve
@@ -89,7 +89,7 @@ jobs:
           docker push $ECR_URI:$IMAGE_TAG
           echo "IMAGE_URI=$ECR_URI:$IMAGE_TAG" >> $GITHUB_ENV
 
-      # Step 2: Apply full Terraform stack (ECS, ALB, etc.)
+      # Apply full Terraform infrastructure
       - name: Terraform Apply (full deployment)
         working-directory: ${{ env.TF_DIR }}
         env:

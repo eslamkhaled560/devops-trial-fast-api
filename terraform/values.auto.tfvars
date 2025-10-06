@@ -13,7 +13,7 @@ ecs_cluster_settings = [
   }
 ]
 
-# ### ECS Task ###
+# ### ECS Task Definition ###
 ### IAM ###
 task_iam_rule_name    = "devops-trial-ecsTaskExecutionRole"
 task_iam_rule_version = "2012-10-17"
@@ -44,6 +44,11 @@ task_egress_rules = [
 
 ### Policy Attachment ###
 task_policy_attachment_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+
+### Task ###
+task_cloudwatch_log_group_name = "/ecs/devops-trial-fastapi"
+task_cloudwatch_log_group_retention = 7
+task_family = "devops-trial-fastapi-task"
 
 ## Application Load Balancer ###
 ### Security Group ###
