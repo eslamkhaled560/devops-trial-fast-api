@@ -37,6 +37,8 @@ terraform {
 }
 
 ###islamkhaledaws@gmail.com configuration###
+###old account - not use as there is a problem creating alb###
+###contacted support but it will take time to be resolved###
 # # S3 bucket for Terraform state 
 # resource "aws_s3_bucket" "tf_state" {
 #   bucket = "devops-trial-terraform-state"

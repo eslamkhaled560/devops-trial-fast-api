@@ -3,7 +3,7 @@
 ############################################
 # TODO: Configure AWS provider with region
 provider "aws" {
-  region = "us-east-1"
+  region = var.aws_region
 }
 
 ############################################
@@ -12,7 +12,7 @@ provider "aws" {
 # TODO: Create ECR repo for FastAPI app image
 # IMPORTANT: Must be named with "devops-trial-" prefix
 resource "aws_ecr_repository" "app" {
-  name = "devops-trial-fastapi-app"
+  name = var.ecr_repo_name
 }
 
 ############################################
@@ -21,12 +21,15 @@ resource "aws_ecr_repository" "app" {
 # TODO: Create ECS cluster
 # IMPORTANT: Must be named with "devops-trial-" prefix
 resource "aws_ecs_cluster" "app" {
-  name = "devops-trial-cluster"
+  name = var.ecs_cluster_name
   
   # Enables ECS metrics & logs in CloudWatch
-  setting {
-    name  = "containerInsights"
-    value = "enabled"  # Enables ECS metrics & logs in CloudWatch
+  dynamic "setting" {
+    for_each = var.ecs_cluster_settings
+    content {
+      name  = setting.value.name
+      value = setting.value.value
+    }
   }
 }
 
@@ -38,22 +41,22 @@ resource "aws_ecs_cluster" "app" {
 #  - CloudWatch logs access
 # IMPORTANT: Must be named with "devops-trial-" prefix
 resource "aws_iam_role" "ecs_task_execution" {
-  name = "devops-trial-ecsTaskExecutionRole"
+  name = var.task_iam_rule_name
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
+    Version = var.task_iam_rule_version
     Statement = [{
-      Effect    = "Allow"
+      Effect    = var.task_iam_rule_effect
       Principal = { 
-        Service = "ecs-tasks.amazonaws.com" 
+        Service = var.task_iam_rule_service 
         }
-      Action    = "sts:AssumeRole"
+      Action    = var.task_iam_rule_action
     }]
   })
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_execution_attach" {
   role       = aws_iam_role.ecs_task_execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  policy_arn = var.task_policy_attachment_arn
 }
 
 ############################################
@@ -81,54 +84,66 @@ data "aws_subnets" "default" {
 
 # Security Group for Application Load Balancer
 resource "aws_security_group" "alb_sg" {
-  name        = "devops-trial-alb-sg"
+  name        = var.alb_sg_name
   description = "Allow inbound HTTP (80) from anywhere"
   vpc_id      = data.aws_vpc.default.id
 
   # Inbound rule: HTTP from anywhere
-  ingress {
-    description      = "Allow HTTP from anywhere"
-    from_port        = 80
-    to_port          = 80
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
+  dynamic "ingress" {
+    for_each = var.alb_ingress_rules
+    content {
+      description      = ingress.value.description
+      from_port        = ingress.value.from_port
+      to_port          = ingress.value.to_port
+      protocol         = ingress.value.protocol
+      cidr_blocks      = ingress.value.cidr_blocks
+      ipv6_cidr_blocks = ingress.value.ipv6_cidr_blocks
+    }
   }
 
   # Outbound rule: allow all
-  egress {
-    description      = "Allow all outbound traffic"
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
+  dynamic "egress" {
+    for_each = var.alb_egress_rules
+    content {
+      description      = egress.value.description
+      from_port        = egress.value.from_port
+      to_port          = egress.value.to_port
+      protocol         = egress.value.protocol
+      cidr_blocks      = egress.value.cidr_blocks
+      ipv6_cidr_blocks = egress.value.ipv6_cidr_blocks
+    }
   }
 }
 
 # Security Group for ECS Tasks
 resource "aws_security_group" "task_sg" {
-  name        = "devops-trial-task-sg"
+  name        = var.task_sg_name
   description = "Allow inbound 8000 only from ALB SG"
   vpc_id      = data.aws_vpc.default.id
 
   # Inbound: only from ALB SG
-  ingress {
-    description     = "Allow inbound app traffic from ALB"
-    from_port       = 8000
-    to_port         = 8000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb_sg.id]
+  dynamic "ingress" {
+    for_each = var.task_ingress_rules
+    content {
+      description     = ingress.value.description
+      from_port       = ingress.value.from_port
+      to_port         = ingress.value.to_port
+      protocol        = ingress.value.protocol
+      security_groups = [aws_security_group.alb_sg.id]
+    }
   }
 
   # Outbound: allow all
-  egress {
-    description      = "Allow all outbound traffic"
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
+  dynamic "egress" {
+    for_each = var.task_egress_rules
+    content {
+      description      = egress.value.description
+      from_port        = egress.value.from_port
+      to_port          = egress.value.to_port
+      protocol         = egress.value.protocol
+      cidr_blocks      = egress.value.cidr_blocks
+      ipv6_cidr_blocks = egress.value.ipv6_cidr_blocks
+    }
   }
 }
 
@@ -141,19 +156,19 @@ resource "aws_security_group" "task_sg" {
 
 # Application Load Balancer
 resource "aws_lb" "app_alb" {
-  name               = "devops-trial-alb"
-  load_balancer_type = "application"
-  internal           = false
+  name               = var.alb_name
+  load_balancer_type = var.alb_type
+  internal           = var.alb_internal_facing
   security_groups    = [aws_security_group.alb_sg.id]
   subnets            = data.aws_subnets.default.ids
 }
 
 # Target Group for ECS Tasks
 resource "aws_lb_target_group" "ecs_tg" {
-  name        = "devops-trial-tg"
-  port        = 8000
-  protocol    = "HTTP"
-  target_type = "ip"
+  name        = var.alb_tg_name
+  port        = var.alb_tg_port
+  protocol    = var.alb_tg_protocol
+  target_type = var.alb_tg_type
   vpc_id      = data.aws_vpc.default.id
 
   health_check {
@@ -164,11 +179,11 @@ resource "aws_lb_target_group" "ecs_tg" {
 # Listener (HTTP forward to target group)
 resource "aws_lb_listener" "app_listener" {
   load_balancer_arn = aws_lb.app_alb.arn
-  port              = 80
-  protocol          = "HTTP"
+  port              = var.alb_listener_port
+  protocol          = var.alb_listener_protocol
 
   default_action {
-    type             = "forward"
+    type             = var.alb_listener_default_action_type
     target_group_arn = aws_lb_target_group.ecs_tg.arn
   }
 }
