@@ -22,7 +22,7 @@ resource "aws_ecr_repository" "app" {
 # IMPORTANT: Must be named with "devops-trial-" prefix
 resource "aws_ecs_cluster" "app" {
   name = var.ecs_cluster_name
-  
+
   # Enables ECS metrics & logs in CloudWatch
   dynamic "setting" {
     for_each = var.ecs_cluster_settings
@@ -45,11 +45,11 @@ resource "aws_iam_role" "ecs_task_execution" {
   assume_role_policy = jsonencode({
     Version = var.task_iam_rule_version
     Statement = [{
-      Effect    = var.task_iam_rule_effect
-      Principal = { 
-        Service = var.task_iam_rule_service 
-        }
-      Action    = var.task_iam_rule_action
+      Effect = var.task_iam_rule_effect
+      Principal = {
+        Service = var.task_iam_rule_service
+      }
+      Action = var.task_iam_rule_action
     }]
   })
 }
@@ -200,25 +200,25 @@ resource "aws_cloudwatch_log_group" "ecs_app" {
 
 resource "aws_ecs_task_definition" "app" {
   family                   = var.task_family
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-  network_mode             = "awsvpc"
+  requires_compatibilities = var.task_launch_type
+  cpu                      = var.task_cpu
+  memory                   = var.task_memory
+  network_mode             = var.task_network_mode
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
 
   container_definitions = jsonencode([{
-    name      = "fastapi"
+    name      = var.task_container_name
     image     = var.image_uri # TODO: replace with actual ECR image
-    essential = true
+    essential = var.task_container_essential
     portMappings = [{
-      containerPort = 8000
-      hostPort      = 8000
+      containerPort = var.task_container_port
+      hostPort      = var.task_host_port
     }]
     logConfiguration = {
       logDriver = "awslogs"
       options = {
         awslogs-group         = aws_cloudwatch_log_group.ecs_app.name
-        awslogs-region        = "us-east-1"
+        awslogs-region        = var.aws_region
         awslogs-stream-prefix = "ecs"
       }
     }
@@ -237,17 +237,17 @@ resource "aws_ecs_task_definition" "app" {
 # IMPORTANT: Must be named with "devops-trial-" prefix
 ############################################
 resource "aws_ecs_service" "app" {
-  name            = "devops-trial-service"
+  name            = var.service_name
   cluster         = aws_ecs_cluster.app.id
   task_definition = aws_ecs_task_definition.app.arn
-  launch_type     = "FARGATE"
+  launch_type     = var.service_launch_type
   desired_count   = 1
 
   # Attach load balancer so ALB routes traffic to ECS tasks
   load_balancer {
     target_group_arn = aws_lb_target_group.ecs_tg.arn
-    container_name   = "fastapi"
-    container_port   = 8000
+    container_name   = var.task_container_name
+    container_port   = var.task_container_port
   }
 
   # Define networking for the ECS task (VPC + Subnets + SGs)
@@ -267,27 +267,27 @@ resource "aws_ecs_service" "app" {
 ############################################
 # Define scalable target — tells AWS which ECS service to scale
 resource "aws_appautoscaling_target" "ecs_target" {
-  max_capacity       = 3
-  min_capacity       = 1
-  service_namespace  = "ecs"
+  max_capacity       = var.autoscaling_max
+  min_capacity       = var.autoscaling_min
+  service_namespace  = var.autoscaling_service_namespace
   resource_id        = "service/${aws_ecs_cluster.app.name}/${aws_ecs_service.app.name}"
-  scalable_dimension = "ecs:service:DesiredCount"
+  scalable_dimension = var.autoscaling_scalable_dimention
 }
 
 # Define scaling policy — how scaling happens (based on average CPU)
 resource "aws_appautoscaling_policy" "ecs_policy" {
-  name               = "devops-trial-ecs-scaling-policy"
-  policy_type        = "TargetTrackingScaling"
-  service_namespace  = "ecs"
+  name               = var.autoscaling_policy_name
+  policy_type        = var.autoscaling_policy_type
+  service_namespace  = var.autoscaling_service_namespace
   resource_id        = aws_appautoscaling_target.ecs_target.resource_id
   scalable_dimension = aws_appautoscaling_target.ecs_target.scalable_dimension
 
   # Target tracking configuration — keep CPU near 70%
   target_tracking_scaling_policy_configuration {
-    target_value = 70.0
+    target_value = var.autoscaling_policy_target_value
 
     predefined_metric_specification {
-      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+      predefined_metric_type = var.autoscaling_policy_metric_type
     }
   }
 }
@@ -300,19 +300,19 @@ resource "aws_appautoscaling_policy" "ecs_policy" {
 # IMPORTANT: Alarm name must start with "devops-trial-"
 ############################################
 resource "aws_cloudwatch_metric_alarm" "ecs_high_cpu" {
-  alarm_name          = "devops-trial-ecs-high-cpu"
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-  evaluation_periods  = 1
-  period              = 60
-  threshold           = 70
-  statistic           = "Average"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/ECS"
+  alarm_name          = var.alarm_name
+  comparison_operator = var.alarm_comparison_operator
+  evaluation_periods  = var.alarm_evaluation_periods
+  period              = var.alarm_period
+  threshold           = var.alarm_threshold
+  statistic           = var.alarm_statistic
+  metric_name         = var.alarm_metric_name
+  namespace           = var.alarm_namespace
 
   dimensions = {
     ClusterName = aws_ecs_cluster.app.name
     ServiceName = aws_ecs_service.app.name
   }
 
-  treat_missing_data = "notBreaching"
+  treat_missing_data = var.alarm_treat_missing_data
 }
