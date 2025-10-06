@@ -42,7 +42,7 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           echo "Checking if Terraform backend exists..."
-          if ! aws s3api head-bucket --bucket devops-trial-tf-backend-state 2>/dev/null; then
+          if ! aws s3api head-bucket --bucket devops-trial-fastapi-app 2>/dev/null; then
             echo "Backend not found. Creating S3 and DynamoDB for Terraform state..."
             terraform init
             terraform apply -target=aws_s3_bucket.tf_state \

@@ -116,7 +116,7 @@ alb_listener_protocol            = "HTTP"
 alb_listener_default_action_type = "forward"
 
 # ### Cloudwatch Alarm ### #
-alarm_name                = "ECSServiceAverageCPUUtilization"
+alarm_name                = "devops-trial-ecs-high-cpu"
 alarm_comparison_operator = "GreaterThanOrEqualToThreshold"
 alarm_evaluation_periods  = 1
 alarm_period              = 60
