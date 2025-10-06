@@ -42,7 +42,7 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           echo "Checking if Terraform backend exists..."
-          if ! aws s3api head-bucket --bucket devops-trial-fastapi-app 2>/dev/null; then
+          if ! aws s3api head-bucket --bucket devops-trial-tf-backend-state 2>/dev/null; then
             echo "Backend not found. Creating S3 and DynamoDB for Terraform state..."
             terraform init
             terraform apply -target=aws_s3_bucket.tf_state \
@@ -58,10 +58,24 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: terraform init -input=false
 
-      # Create ECR repository only
-      - name: Terraform Apply (create only ECR)
+      # Create ECR repository only if it doesn't exist
+      - name: Terraform Apply (create only ECR if missing)
         working-directory: ${{ env.TF_DIR }}
-        run: terraform apply -target=aws_ecr_repository.app -auto-approve
+        env:
+          ECR_REPO_NAME: ${{ env.ECR_REPO_NAME }}
+        run: |
+          echo "Checking if ECR repository '${ECR_REPO_NAME}' exists..."
+          if aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
+            echo "ECR repository '${ECR_REPO_NAME}' already exists. Skipping Terraform apply for ECR."
+          else
+            echo "ECR repository '${ECR_REPO_NAME}' not found. Creating with Terraform..."
+            terraform apply -target=aws_ecr_repository.app -auto-approve
+          fi
+
+    #   # Create ECR repository only
+    #   - name: Terraform Apply (create only ECR)
+    #     working-directory: ${{ env.TF_DIR }}
+    #     run: terraform apply -target=aws_ecr_repository.app -auto-approve
 
       # Get ECR repository URI from Terraform output
       - name: Get ECR repository URI
@@ -97,6 +111,6 @@ jobs:
         run: terraform apply -auto-approve
 
       # Output ALB DNS name or service info
-      - name: Show deployment outputs
+      - name: Show ALB DNS name
         working-directory: ${{ env.TF_DIR }}
-        run: terraform output || echo "No outputs found"
+        run: terraform output -raw alb_dns_name || echo "No ALB DNS output found"
