@@ -117,7 +117,7 @@ alb_listener_default_action_type = "forward"
 
 # ### Cloudwatch Alarm ### #
 alarm_name                = "ECSServiceAverageCPUUtilization"
-alarm_comparison_operator = "ECSServiceAverageCPUUtilization"
+alarm_comparison_operator = "GreaterThanOrEqualToThreshold"
 alarm_evaluation_periods  = 1
 alarm_period              = 60
 alarm_threshold           = 70
