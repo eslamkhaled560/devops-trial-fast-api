@@ -26,6 +26,7 @@ resource "aws_dynamodb_table" "tf_lock" {
   }
 }
 
+# Remote Backend
 terraform {
   backend "s3" {
     bucket         = "devops-trial-tf-backend-state"
