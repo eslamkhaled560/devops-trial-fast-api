@@ -22,7 +22,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Configure AWS credentials (from GitHub secrets)
+      # Configure AWS credentials from GitHub secrets
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -42,7 +42,7 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           echo "Checking if Terraform backend exists..."
-          if ! aws s3api head-bucket --bucket devops-trial-tf-backend-state 2>/dev/null; then
+          if ! aws s3api head-bucket --bucket devops-trial-tf-backend-state; then
             echo "Backend not found. Creating S3 and DynamoDB for Terraform state..."
             terraform init
             terraform apply -target=aws_s3_bucket.tf_state \
@@ -62,7 +62,7 @@ jobs:
       - name: Terraform Apply (create only ECR if missing)
         working-directory: ${{ env.TF_DIR }}
         env:
-          ECR_REPO_NAME: ${{ env.ECR_REPO_NAME }}
+          ECR_REPO_NAME: ${{ env.ECR_REPO_NAME }} # This variable will receive the ECR repo name from Terraform Variables
         run: |
           echo "Checking if ECR repository '${ECR_REPO_NAME}' exists..."
           if aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
@@ -71,11 +71,6 @@ jobs:
             echo "ECR repository '${ECR_REPO_NAME}' not found. Creating with Terraform..."
             terraform apply -target=aws_ecr_repository.app -auto-approve
           fi
-
-    #   # Create ECR repository only
-    #   - name: Terraform Apply (create only ECR)
-    #     working-directory: ${{ env.TF_DIR }}
-    #     run: terraform apply -target=aws_ecr_repository.app -auto-approve
 
       # Get ECR repository URI from Terraform output
       - name: Get ECR repository URI
@@ -91,7 +86,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Build & push Docker image to ECR
+      # Build & push Docker image to ECR tagged with Github SHA
       - name: Build and push Docker image
         env:
           IMAGE_TAG: ${{ github.sha }}
@@ -107,10 +102,18 @@ jobs:
       - name: Terraform Apply (full deployment)
         working-directory: ${{ env.TF_DIR }}
         env:
-          TF_VAR_image_uri: ${{ env.IMAGE_URI }}
+          TF_VAR_image_uri: ${{ env.IMAGE_URI }} # Pass Image URI value to Terraform
         run: terraform apply -auto-approve
 
       # Output ALB DNS name or service info
       - name: Show ALB DNS name
         working-directory: ${{ env.TF_DIR }}
-        run: terraform output -raw alb_dns_name || echo "No ALB DNS output found"
+        run: |
+          ALB_DNS=$(terraform output -raw alb_dns_name || echo "")
+          if [ -n "$ALB_DNS" ]; then
+            echo "✅ Deployment successful!"
+            echo "🌐 Use this link to access the app:"
+            echo "👉 http://$ALB_DNS"
+          else
+            echo "⚠️ No ALB DNS output found."
+          fi

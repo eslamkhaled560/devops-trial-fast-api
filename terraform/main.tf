@@ -1,7 +1,6 @@
 ############################################
 # AWS Provider
 ############################################
-# TODO: Configure AWS provider with region
 provider "aws" {
   region = var.aws_region
 }
@@ -9,8 +8,6 @@ provider "aws" {
 ############################################
 # ECR Repository
 ############################################
-# TODO: Create ECR repo for FastAPI app image
-# IMPORTANT: Must be named with "devops-trial-" prefix
 resource "aws_ecr_repository" "app" {
   name = var.ecr_repo_name
 }
@@ -18,8 +15,6 @@ resource "aws_ecr_repository" "app" {
 ############################################
 # ECS Cluster
 ############################################
-# TODO: Create ECS cluster
-# IMPORTANT: Must be named with "devops-trial-" prefix
 resource "aws_ecs_cluster" "app" {
   name = var.ecs_cluster_name
 
@@ -36,10 +31,6 @@ resource "aws_ecs_cluster" "app" {
 ############################################
 # IAM Role for ECS Task Execution
 ############################################
-# TODO: Create ECS task execution IAM role with:
-#  - AmazonECSTaskExecutionRolePolicy
-#  - CloudWatch logs access
-# IMPORTANT: Must be named with "devops-trial-" prefix
 resource "aws_iam_role" "ecs_task_execution" {
   name = var.task_iam_rule_name
   assume_role_policy = jsonencode({
@@ -62,12 +53,6 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_attach" {
 ############################################
 # Networking & Security Groups
 ############################################
-# TODO: Define Security Groups
-#  - ALB SG: allow inbound HTTP (80) from anywhere
-#  - Task SG: allow inbound only from ALB SG on port 8000
-# IMPORTANT: Must use "devops-trial-" prefix for names
-
-# HINT: VPC/Subnets can be data-sourced from default VPC
 
 # Fetch default VPC
 data "aws_vpc" "default" {
@@ -88,7 +73,7 @@ resource "aws_security_group" "alb_sg" {
   description = "Allow inbound HTTP (80) from anywhere"
   vpc_id      = data.aws_vpc.default.id
 
-  # Inbound rule: HTTP from anywhere
+  # Inbound rule HTTP from anywhere
   dynamic "ingress" {
     for_each = var.alb_ingress_rules
     content {
@@ -101,7 +86,7 @@ resource "aws_security_group" "alb_sg" {
     }
   }
 
-  # Outbound rule: allow all
+  # Outbound rule allow all
   dynamic "egress" {
     for_each = var.alb_egress_rules
     content {
@@ -115,13 +100,13 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
-# Security Group for ECS Tasks
+# Security Group for ECS Task
 resource "aws_security_group" "task_sg" {
   name        = var.task_sg_name
   description = "Allow inbound 8000 only from ALB SG"
   vpc_id      = data.aws_vpc.default.id
 
-  # Inbound: only from ALB SG
+  # Inbound only from ALB SG
   dynamic "ingress" {
     for_each = var.task_ingress_rules
     content {
@@ -133,7 +118,7 @@ resource "aws_security_group" "task_sg" {
     }
   }
 
-  # Outbound: allow all
+  # Outbound allow all
   dynamic "egress" {
     for_each = var.task_egress_rules
     content {
@@ -150,9 +135,6 @@ resource "aws_security_group" "task_sg" {
 ############################################
 # Load Balancer
 ############################################
-# TODO: Create ALB in public subnets
-# TODO: Create Target Group + Listener (port 80 → ECS tasks port 8000)
-# IMPORTANT: Must be named with "devops-trial-" prefix
 
 # Application Load Balancer
 resource "aws_lb" "app_alb" {
@@ -163,7 +145,7 @@ resource "aws_lb" "app_alb" {
   subnets            = data.aws_subnets.default.ids
 }
 
-# Target Group for ECS Tasks
+# Target Group for ECS Task
 resource "aws_lb_target_group" "ecs_tg" {
   name        = var.alb_tg_name
   port        = var.alb_tg_port
@@ -192,7 +174,6 @@ resource "aws_lb_listener" "app_listener" {
 ############################################
 # ECS Task Definition
 ############################################
-# TODO: Reference ECR image (candidate must set image URI)
 resource "aws_cloudwatch_log_group" "ecs_app" {
   name              = var.task_cloudwatch_log_group_name
   retention_in_days = var.task_cloudwatch_log_group_retention
@@ -208,7 +189,7 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([{
     name      = var.task_container_name
-    image     = var.image_uri # TODO: replace with actual ECR image
+    image     = var.image_uri
     essential = var.task_container_essential
     portMappings = [{
       containerPort = var.task_container_port
@@ -228,14 +209,6 @@ resource "aws_ecs_task_definition" "app" {
 ############################################
 # ECS Service
 ############################################
-# TODO: Create ECS Service using:
-#  - Cluster
-#  - Task definition
-#  - Load balancer target group
-#  - Fargate launch type
-#  - Assign SG/subnets
-# IMPORTANT: Must be named with "devops-trial-" prefix
-############################################
 resource "aws_ecs_service" "app" {
   name            = var.service_name
   cluster         = aws_ecs_cluster.app.id
@@ -243,14 +216,12 @@ resource "aws_ecs_service" "app" {
   launch_type     = var.service_launch_type
   desired_count   = 1
 
-  # Attach load balancer so ALB routes traffic to ECS tasks
   load_balancer {
     target_group_arn = aws_lb_target_group.ecs_tg.arn
     container_name   = var.task_container_name
     container_port   = var.task_container_port
   }
 
-  # Define networking for the ECS task (VPC + Subnets + SGs)
   network_configuration {
     assign_public_ip = true
     subnets          = data.aws_subnets.default.ids
@@ -261,10 +232,7 @@ resource "aws_ecs_service" "app" {
 ############################################
 # Auto Scaling
 ############################################
-# TODO: Add Application Auto Scaling for ECS Service
-#  - Target CPU utilization 70%
-# IMPORTANT: Resource names must include "devops-trial-"
-############################################
+
 # Define scalable target — tells AWS which ECS service to scale
 resource "aws_appautoscaling_target" "ecs_target" {
   max_capacity       = var.autoscaling_max
@@ -274,7 +242,7 @@ resource "aws_appautoscaling_target" "ecs_target" {
   scalable_dimension = var.autoscaling_scalable_dimention
 }
 
-# Define scaling policy — how scaling happens (based on average CPU)
+# Autoscaling policy based on average CPU
 resource "aws_appautoscaling_policy" "ecs_policy" {
   name               = var.autoscaling_policy_name
   policy_type        = var.autoscaling_policy_type
@@ -294,11 +262,10 @@ resource "aws_appautoscaling_policy" "ecs_policy" {
 
 
 ############################################
-# Monitoring
+# Cloudwatch Alarm
 ############################################
-# TODO: Add CloudWatch alarm for high CPU (>70%)
-# IMPORTANT: Alarm name must start with "devops-trial-"
-############################################
+
+# CloudWatch alarm for high CPU (>=70%)
 resource "aws_cloudwatch_metric_alarm" "ecs_high_cpu" {
   alarm_name          = var.alarm_name
   comparison_operator = var.alarm_comparison_operator
