@@ -88,7 +88,7 @@ resource "aws_ecs_service" "app" {
   }
 
   network_configuration {
-    assign_public_ip = true
+    assign_public_ip = false
     subnets          = data.aws_subnets.default.ids
     security_groups  = [aws_security_group.task_sg.id]
   }
